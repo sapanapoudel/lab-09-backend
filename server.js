@@ -68,10 +68,10 @@ function lookup(options) {
 //==================Location Route=================================
 function Location(query, result) {
   this.tableName = 'locations',
-    this.search_query = query,
-    this.formatted_query = result.body.results[0].formatted_address,
-    this.latitude = result.body.results[0].geometry.location.lat,
-    this.longitude = result.body.results[0].geometry.location.lng;
+  this.search_query = query,
+  this.formatted_query = result.body.results[0].formatted_address,
+  this.latitude = result.body.results[0].geometry.location.lat,
+  this.longitude = result.body.results[0].geometry.location.lng;
 }
 
 Location.lookupLocation = (location) => {
@@ -196,9 +196,9 @@ function getWeatherRoute(request, response) {
 function Event(event) {
   this.tableName = 'events';
   this.link = event.url,
-    this.name = event.name.text,
-    this.event_date = new Date(event.start.local).toDateString(),
-    this.summary = event.summary;
+  this.name = event.name.text,
+  this.event_date = new Date(event.start.local).toDateString(),
+  this.summary = event.summary;
 }
 
 Event.tableName = 'events';
