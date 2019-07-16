@@ -15,6 +15,7 @@ CREATE TABLE locations (
 
 CREATE TABLE weathers (
   id SERIAL PRIMARY KEY, 
+  created_at VARCHAR(255),
   forecast VARCHAR(255),
   time VARCHAR(255),
   location_id INTEGER NOT NULL,

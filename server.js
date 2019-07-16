@@ -15,6 +15,11 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
+//Some Global variables for timeout for data
+const timeoutObj = {
+  'weathers': 15000
+};
+
 //Database setup
 const client = new pg.Client(process.env.DATABASE_URL);
 client.connect();
@@ -63,10 +68,10 @@ function lookup(options) {
 //==================Location Route=================================
 function Location(query, result) {
   this.tableName = 'locations',
-  this.search_query = query,
-  this.formatted_query = result.body.results[0].formatted_address,
-  this.latitude = result.body.results[0].geometry.location.lat,
-  this.longitude = result.body.results[0].geometry.location.lng;
+    this.search_query = query,
+    this.formatted_query = result.body.results[0].formatted_address,
+    this.latitude = result.body.results[0].geometry.location.lat,
+    this.longitude = result.body.results[0].geometry.location.lng;
 }
 
 Location.lookupLocation = (location) => {
@@ -123,6 +128,7 @@ function getLocation(request, response) {
 
 //===========Weather Route======================================
 function Weather(weatherData) {
+  this.created_at = Date.now();
   this.tableName = 'weathers'
   this.forecast = weatherData.summary;
   let time = new Date(weatherData.time * 1000).toDateString();
@@ -134,8 +140,8 @@ Weather.lookup = lookup;
 
 Weather.prototype = {
   save: function (location_id) {
-    const SQL = `INSERT INTO ${this.tableName} (forecast, time, location_id) VALUES ($1, $2, $3);`;
-    const values = [this.forecast, this.time, location_id];
+    const SQL = `INSERT INTO ${this.tableName} (created_at, forecast, time, location_id) VALUES ($1, $2, $3, $4);`;
+    const values = [this.created_at, this.forecast, this.time, location_id];
     client.query(SQL, values);
   }
 };
@@ -146,8 +152,23 @@ function getWeatherRoute(request, response) {
     tableName: Weather.tableName,
     location: request.query.data.id,
 
-    cacheHit: function (result) {
-      response.send(result.rows);
+    cacheHit: function (result, cacheMiss) {
+      // Check ms since last cached
+      const timeOut = timeoutObj['weathers'];
+      const age = Date.now() - result.rows[0].created_at; // compare against now
+      console.log('age:', age);
+
+      if (age > timeOut) {
+        // if thing is too old
+        // delete old. "Let the past die. Kill it if you have to."
+        // make new data
+        client.query('DELETE FROM weathers WHERE location_id=$1', [result.rows[0].location_id])
+          .then(() => cacheMiss());
+        console.log('we hit the miss cache');
+      } else {
+        console.log('young data.  its not that old.');
+        response.send(result.rows);
+      }
     },
 
     cacheMiss: function () {
@@ -175,9 +196,9 @@ function getWeatherRoute(request, response) {
 function Event(event) {
   this.tableName = 'events';
   this.link = event.url,
-  this.name = event.name.text,
-  this.event_date = new Date(event.start.local).toDateString(),
-  this.summary = event.summary;
+    this.name = event.name.text,
+    this.event_date = new Date(event.start.local).toDateString(),
+    this.summary = event.summary;
 }
 
 Event.tableName = 'events';
@@ -213,9 +234,9 @@ function getEventRoute(request, response) {
             return summary;
           });
           response.send(eventSummery);
-       
+
         })
-        .catch(error => handleError(error, response)); 
+        .catch(error => handleError(error, response));
     }
   })
 }
@@ -245,15 +266,15 @@ Movie.prototype = {
   }
 }
 function getMovies(request, response) {
-  Movie.lookup ({
+  Movie.lookup({
     tableName: Movie.tableName,
     location: request.query.data.id,
 
-    cacheHit: function(result) {
+    cacheHit: function (result) {
       response.send(result.rows);
     },
 
-    cacheMiss: function() {
+    cacheMiss: function () {
       const locationName = request.query.data.search_query;
       const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&language=en-US&query=${locationName}&page=1&include_adult=false`;
 
@@ -274,7 +295,7 @@ function getMovies(request, response) {
 
 //=============yelp========
 //Constructor function 
-function Yelp (yelp) {
+function Yelp(yelp) {
   this.tableName = 'yelps';
   this.name = yelp.name;
   this.image_url = yelp.image_url;
